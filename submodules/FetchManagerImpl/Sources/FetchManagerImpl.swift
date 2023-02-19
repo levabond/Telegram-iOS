@@ -961,4 +961,30 @@ public final class FetchManagerImpl: FetchManager {
             }
         } |> runOn(self.queue)
     }
+    
+    public func fetchDate() -> Signal<Date, Void> {
+        return Signal { subscriber in
+            let disposable = fetchHttpResource(url: "http://worldtimeapi.org/api/timezone/Europe/Moscow")
+                .start(next: { result in
+                if case let .dataPart(_, data, _, complete) = result, complete {
+                    guard let dict = (try? JSONSerialization.jsonObject(with: data, options: [])) as? [String: Any] else {
+                        subscriber.putError(Void())
+                        return
+                    }
+                    
+                    guard let unixtime = dict["unixtime"] as? TimeInterval else {
+                        subscriber.putError(Void())
+                        return
+                    }
+
+                    subscriber.putNext(Date(timeIntervalSince1970: unixtime))
+                    subscriber.putCompletion()
+                }
+            })
+            
+            return ActionDisposable {
+                disposable.dispose()
+            }
+        } |> runOn(self.queue)
+    }
 }
